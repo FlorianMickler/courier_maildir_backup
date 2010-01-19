@@ -119,7 +119,7 @@ class MaildirWriter(object):
         if self.path == None or not os.path.isdir(self.path):
             raise ValueError, 'Path does not exist'
         tryCount = 1
-        srcFile = msg.fp.name;
+        srcFile = msg.fp._file.name;
         (dstName, tmpFile, newFile, dstFile) = (None, None, None, None)
         while 1:
             try:
@@ -177,14 +177,14 @@ class MaildirMessage(rfc822.Message):
     def isFlagged(self):
         """return true if the message is flagged as important"""
         import re
-        fname = self.fp.name
+        fname = self.fp._file.name
         if re.search(r':.*F', fname) != None:
             return True
         return False
 
     def getFlags(self):
         """return the flag part of the message's filename"""
-        parts = self.fp.name.split(':')
+        parts = self.fp._file.name.split(':')
         if len(parts) == 2:
             return parts[1]
         return None
@@ -193,7 +193,7 @@ class MaildirMessage(rfc822.Message):
         """return true if the message is marked as unread"""
         # XXX should really be called isUnread
         import re
-        fname = self.fp.name
+        fname = self.fp._file.name
         if re.search(r':.*S', fname) != None:
             return False
         return True
@@ -244,7 +244,7 @@ class MaildirMessage(rfc822.Message):
     def getDateRecd(self):
         """Get the time the message was received"""
         # XXX check that stat returns time in UTC, fix if not
-        return os.stat(self.fp.name)[8]
+        return os.stat(self.fp._file.name)[8]
 
     def getDateSentOrRecd(self):
         """Get the time the message was sent, fall back on time received"""
@@ -366,12 +366,12 @@ class MaildirCleaner(object):
                                  (fakeMsg, i), msg)
                         if not self.isTrialRun:
                             self.trashWriter.deliver(msg)
-                            os.unlink(msg.fp.name)
+                            os.unlink(msg.fp._file.name)
                     elif mode == 'delete':
                         self.log(logging.INFO, "%sDeleting #%d (old)" % 
                                  (fakeMsg, i), msg)
                         if not self.isTrialRun:
-                            os.unlink(msg.fp.name)
+                            os.unlink(msg.fp._file.name)
                     else: # mode == 'archive'
                         # Determine subfolder path
                         mdate = time.gmtime(msg.getDateSentOrRecd())
@@ -394,7 +394,7 @@ class MaildirCleaner(object):
                                 mkMaildir(sfPath)
                             # Deliver
                             self.__mdWriter.deliver(msg, sfPath)
-                            os.unlink(msg.fp.name)
+                            os.unlink(msg.fp._file.name)
                     self.stats[mode] += 1
                 else:
                     self.log(logging.DEBUG, "Keeping #%d (fresh)" % i, msg)
