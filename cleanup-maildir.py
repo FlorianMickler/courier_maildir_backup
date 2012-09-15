@@ -68,16 +68,18 @@ __version__ = "0.2.3"
 # $Id$
 # $URL$
 
-import mailbox
-import os.path
-import os
-import rfc822
-import string
-import socket
-import time
-import logging
-import sys
+import email.Header
 import getopt
+import logging
+import mailbox
+import os
+import os.path
+import re
+import rfc822
+import socket
+import string
+import sys
+import time
 
 
 def mkMaildir(path):
@@ -176,7 +178,6 @@ class MaildirMessage(rfc822.Message):
 
     def isFlagged(self):
         """return true if the message is flagged as important"""
-        import re
         fname = self.fp._file.name
         if re.search(r':.*F', fname) != None:
             return True
@@ -192,7 +193,6 @@ class MaildirMessage(rfc822.Message):
     def isNew(self):
         """return true if the message is marked as unread"""
         # XXX should really be called isUnread
-        import re
         fname = self.fp._file.name
         if re.search(r':.*S', fname) != None:
             return False
@@ -201,7 +201,6 @@ class MaildirMessage(rfc822.Message):
     def getSubject(self):
         """get the message's subject as a unicode string"""
 
-        import email.Header
         s = self.getheader("Subject")
         try:
             return u"".join(map(lambda x: x[0].decode(x[1] or 'ASCII', 'replace'),
@@ -215,8 +214,6 @@ class MaildirMessage(rfc822.Message):
         This currently means lowercasing and removing any reply or forward
         indicators.
         """
-        import re
-        import string
         s = self.getSubject()
         if s == None:
             return '(no subject)'
