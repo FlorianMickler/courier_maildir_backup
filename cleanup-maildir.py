@@ -69,6 +69,8 @@ __version__ = "0.2.3"
 # $Id$
 # $URL$
 
+from pygraph.classes.graph import graph
+from pygraph.algorithms.traversal import traversal
 import email.Header
 import getopt
 import logging
@@ -220,6 +222,18 @@ class MaildirMessage(rfc822.Message):
             return '(no subject)'
         return re.sub(r'^(re|fwd?):\s*', '', string.strip(s.lower()))
 
+    def getMessageId(self):
+        return self.getheader('Message-ID')
+
+    def getInReplyTo(self):
+        return self.getheader('In-Reply-To')
+
+    def getReferences(self):
+        references = self.getheader('References')
+        if references is None:
+            return []
+        return [mid for mid in re.split('\s+', references) if mid[0] == '<' and mid[-1] == '>']
+
     def getDateSent(self):
         """Get the time of sending from the Date header
 
@@ -300,17 +314,44 @@ class MaildirCleaner(object):
 
     def scanSubjects(self, folderName):
         """Scans for flagged subjects"""
-        self.logger.info("Scanning for flagged subjects...")
+        self.logger.info("Scanning for flagged threads...")
         if (folderName == 'INBOX'):
             path = self.folderBase
         else:
             path = os.path.join(self.folderBase, self.folderPrefix + folderName)
         maildir = mailbox.Maildir(path, MaildirMessage)
-        self.keepSubjects = {}
+        self.keepMsgIds = dict()
+        flaggedMsgIds = list()
+        references = graph()
         for i, msg in enumerate(maildir):
+            if i % 1000 == 0:
+                self.logger.debug("Processed %d mails...", i)
+            mid, irt = msg.getMessageId(), msg.getInReplyTo()
+            if mid is None:
+                raise ValueError, "empty message ID found"
+            if not references.has_node(mid):
+                references.add_node(mid)
+            if not references.has_edge((mid, mid)):
+                references.add_edge((mid, mid))
+            if irt is not None:
+                if not references.has_node(irt):
+                    references.add_node(irt)
+                if not references.has_edge((mid, irt)):
+                    references.add_edge((mid, irt))
+                # Add references header as well, as intermediate messages
+                # might be saved in the Sent folder.
+                for ref in msg.getReferences():
+                    if not references.has_node(ref):
+                        references.add_node(ref)
+                    if not references.has_edge((mid, ref)):
+                        references.add_edge((mid, ref))
             if msg.isFlagged():
-                self.keepSubjects[msg.getSubjectHash()] = 1
-                self.logger.debug("Flagged (%d): %s", i, msg.getSubjectHash())
+                flaggedMsgIds.append(mid)
+                self.logger.debug("Flagged (%d): %s -- %s", i, msg.getSubjectHash(), mid)
+        for fmid in flaggedMsgIds:
+            for tmid in traversal(references, fmid, 'pre'):
+                self.keepMsgIds[tmid] = 1
+                self.logger.debug("Keeping %s (part of %s)", tmid, fmid)
         self.logger.info("Done scanning.")
 
 
@@ -355,7 +396,7 @@ class MaildirCleaner(object):
         # Move old messages
         for i, msg in enumerate(maildir):
             if self.keepFlaggedThreads == True \
-                    and msg.getSubjectHash() in self.keepSubjects:
+                    and msg.getMessageId() in self.keepMsgIds:
                 self.log(logging.DEBUG, "Keeping #%d (topic flagged)" % i, msg)
             else:
                 if (msg.getAge() >= minAge) and ((not self.keepRead) or (self.keepRead and msg.isNew())):
