@@ -375,10 +375,10 @@ class MaildirCleaner(object):
                         datePart = str(mdate[0])
                         if self.archiveHierDepth > 1:
                             datePart += self.folderSeperator \
-                                        + time.strftime("%m-%b", mdate)
+                                        + time.strftime("%m", mdate)
                         if self.archiveHierDepth > 2:
                             datePart += self.folderSeperator \
-                                        + time.strftime("%d-%a", mdate)
+                                        + time.strftime("%d", mdate)
                         subFolder = archiveFolder + self.folderSeperator \
                                     + datePart
                         sfPath = os.path.join(self.folderBase, 
