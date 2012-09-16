@@ -330,7 +330,8 @@ class MaildirCleaner(object):
                 self.logger.debug("Processed %d mails...", i)
             mid, irt = msg.getMessageId(), msg.getInReplyTo()
             if mid is None:
-                raise ValueError, "empty message ID found"
+                self.logger.debug("Mail without a message ID found (%d): %s", i, msg.getSubjectHash())
+                continue
             if not references.has_node(mid):
                 references.add_node(mid)
             if not references.has_edge((mid, mid)):
