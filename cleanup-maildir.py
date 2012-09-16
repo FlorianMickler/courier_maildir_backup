@@ -227,7 +227,13 @@ class MaildirMessage(rfc822.Message):
         return self.getheader('Message-ID')
 
     def getInReplyTo(self):
-        return self.getheader('In-Reply-To')
+        irt = self.getheader('In-Reply-To')
+        if irt is None:
+            return None
+        # Handle an empty In-Reply-To gracefully (RT does generate those).
+        if len(irt.strip()) == 0:
+            return None
+        return irt
 
     def getReferences(self):
         references = self.getheader('References')
