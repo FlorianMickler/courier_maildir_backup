@@ -31,6 +31,9 @@ OPTIONS
   -k, --keep-flagged-threads
       If any messages in a thread are flagged, do not touch them or
       any other messages in that thread.
+  -u, --keep-unread-threads
+      If any messages in a thread are unread, do not touch them or any
+      other messages in that thread.
   -r, --keep-read
       If any messages are flagged as READ, do not touch them.
   -t, --trash-folder=F
@@ -287,6 +290,7 @@ class MaildirCleaner(object):
     folderPrefix = "."
     folderSeperator = "."
     keepFlaggedThreads = False
+    keepUnreadThreads = False
     trashFolder = "Trash"
     isTrialRun = False
     keepRead = False
@@ -312,14 +316,14 @@ class MaildirCleaner(object):
 
     def scanSubjects(self, folderName):
         """Scans for flagged subjects"""
-        self.logger.info("Scanning for flagged threads...")
+        self.logger.info("Scanning threads...")
         if (folderName == 'INBOX'):
             path = self.folderBase
         else:
             path = os.path.join(self.folderBase, self.folderPrefix + folderName)
         maildir = mailbox.Maildir(path, MaildirMessage)
         self.keepMsgIds = dict()
-        flaggedMsgIds = list()
+        wantedMsgIds = list()
         references = graph()
         for i, msg in enumerate(maildir):
             if i % 1000 == 0:
@@ -343,13 +347,16 @@ class MaildirCleaner(object):
                         references.add_node(ref)
                     if not references.has_edge((mid, ref)):
                         references.add_edge((mid, ref))
-            if msg.isFlagged():
-                flaggedMsgIds.append(mid)
+            if self.keepFlaggedThreads and msg.isFlagged():
+                wantedMsgIds.append(mid)
                 self.logger.debug("Flagged (%d): %s -- %s", i, msg.getSubjectHash(), mid)
-        for fmid in flaggedMsgIds:
-            for tmid in traversal(references, fmid, 'pre'):
+            if self.keepUnreadThreads and msg.isNew():
+                wantedMsgIds.append(mid)
+                self.logger.debug("Unread (%d): %s -- %s", i, msg.getSubjectHash(), mid)
+        for wmid in wantedMsgIds:
+            for tmid in traversal(references, wmid, 'pre'):
                 self.keepMsgIds[tmid] = 1
-                self.logger.debug("Keeping %s (part of %s)", tmid, fmid)
+                self.logger.debug("Keeping %s (part of wanted %s)", tmid, wmid)
         self.logger.info("Done scanning.")
 
 
@@ -370,7 +377,7 @@ class MaildirCleaner(object):
         if not mode in ('trash', 'archive', 'delete'):
             raise ValueError
 
-        if (self.keepFlaggedThreads):
+        if (self.keepFlaggedThreads or self.keepUnreadThreads):
             self.scanSubjects(folderName)
 
         archiveFolder = self.archiveFolder
@@ -458,11 +465,12 @@ cleaner = MaildirCleaner()
 # Read command-line arguments
 try:
     opts, args = getopt.getopt(sys.argv[1:], 
-            "hqvnrm:t:a:kd:",
+            "hqvnrm:t:a:kud:",
             ["help", "quiet", "verbose", "version", "mode=", "trash-folder=",
-             "age=", "keep-flagged-threads", "keep-read", "folder-seperator=",
-             "folder-prefix=", "maildir-root=", "archive-folder=",
-             "archive-hierarchy-depth=", "trial-run"])
+             "age=", "keep-flagged-threads", "--keep-unread-threads",
+             "keep-read", "folder-seperator=", "folder-prefix=",
+             "maildir-root=", "archive-folder=", "archive-hierarchy-depth=",
+             "trial-run"])
 except getopt.GetoptError, (msg, opt):
     logger.error("%s\n\n%s" % (msg, __doc__))
     sys.exit(2)
@@ -495,6 +503,8 @@ for o, a in opts:
         minAge = int(a)
     if o in ("-k", "--keep-flagged-threads"): 
         cleaner.keepFlaggedThreads = True
+    if o in ("-u", "--keep-unread-threads"): 
+        cleaner.keepUnreadThreads = True
     if o in ("-r", "--keep-read"):
         cleaner.keepRead = True
     if o == "--folder-seperator":
