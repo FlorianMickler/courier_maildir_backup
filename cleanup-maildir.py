@@ -31,8 +31,6 @@ OPTIONS
   -k, --keep-flagged-threads
       If any messages in a thread are flagged, do not touch them or
       any other messages in that thread.
-      Note: the thread-detection mechanism is currently base purely on
-      a message's subject.  The In-Reply-To header is not currently used.
   -r, --keep-read
       If any messages are flagged as READ, do not touch them.
   -t, --trash-folder=F
