@@ -474,7 +474,7 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], 
             "hqvnrm:t:a:kud:",
             ["help", "quiet", "verbose", "version", "mode=", "trash-folder=",
-             "age=", "keep-flagged-threads", "--keep-unread-threads",
+             "age=", "keep-flagged-threads", "keep-unread-threads",
              "keep-read", "folder-seperator=", "folder-prefix=",
              "maildir-root=", "archive-folder=", "archive-hierarchy-depth=",
              "trial-run"])
