@@ -41,7 +41,12 @@ OPTIONS
       Default is 'Trash'.
   --archive-folder=F
       Use F as the base for constructing archive folders.  For example, if F is
-      'Archive', messages from 2004 might be put in the folder 'Archive.2004'.
+      'Archive', messages from 2004 might be put in the folder 'Archive.2004'
+  --archive-subfolder=S
+      If set the date-based folder is put in a subfolder S.
+      So, with standard folder separator ".", --archive-folder not set and S 
+      set to 'Archive', messages from 2004 get put into FOLDERNAME.Archive.2004
+      If --archive-folder is set to 'F', messages get put into F.Archive.2004. 
   -d, --archive-hierarchy-depth=N
       Specify number of subfolders in archive hierarchy; 1 is just
       the year, 2 is year/month (default), 3 is year/month/day.
@@ -291,6 +296,7 @@ class MaildirCleaner(object):
     stats = {'total': 0, 'delete': 0, 'trash': 0, 'archive': 0}
     keepSubjects = {}
     archiveFolder = None
+    archiveSubFolder = None
     archiveHierDepth = 2
     folderBase = None
     folderPrefix = "."
@@ -393,9 +399,13 @@ class MaildirCleaner(object):
                 archiveFolder = ""
             else:
                 archiveFolder = folderName
+   
+        if (self.archiveSubFolder != None):
+            archiveFolder += self.folderSeperator
+            archiveFolder += self.archiveSubFolder
 
         if (folderName == 'INBOX'):
-            path = self.folderBase
+           path = self.folderBase
         else:
             path = os.path.join(self.folderBase, self.folderPrefix + folderName)
 
@@ -476,8 +486,8 @@ try:
             ["help", "quiet", "verbose", "version", "mode=", "trash-folder=",
              "age=", "keep-flagged-threads", "keep-unread-threads",
              "keep-read", "folder-seperator=", "folder-prefix=",
-             "maildir-root=", "archive-folder=", "archive-hierarchy-depth=",
-             "trial-run"])
+             "maildir-root=", "archive-folder=", "archive-subfolder=",
+             "archive-hierarchy-depth=", "trial-run"])
 except getopt.GetoptError, (msg, opt):
     logger.error("%s\n\n%s" % (msg, __doc__))
     sys.exit(2)
@@ -506,6 +516,8 @@ for o, a in opts:
         cleaner.trashFolder = a
     if o == "--archive-folder":
         cleaner.archiveFolder = a
+    if o == "--archive-subfolder":
+        cleaner.archiveSubFolder = a
     if o in ("-a", "--age"): 
         minAge = int(a)
     if o in ("-k", "--keep-flagged-threads"): 
