@@ -3,9 +3,12 @@
 BASE=$HOME/Maildir
 ARCHIVEBASE=$HOME/Maildir
 
-for folder in `find $BASE -regextype posix-extended  -maxdepth 1 -type d \! -iregex ".*\.archiv(\..*)?" \! -name cur \! -name tmp \! -name new \! -name search \! -regex '.*\.SPAM.*' \! -name "courier*"`
+#for folder in `find $BASE -regextype posix-extended  -maxdepth 1 -type d \! -iregex ".*\.archiv(\..*)?" \! -name cur \! -name tmp \! -name new \! -name search \! -regex '.*\.SPAM.*' \! -name "courier*"`
+for folder in `find $BASE -regextype posix-extended -maxdepth 1 -type d -iregex ".*\.archiv(\..*)?" \! -name cur \! -name tmp \! -name new \! -name \.Mail_Search \! -regex '.*\.SPAM.*' \! -name "courier*" \! -name "search" | sort`
 do
   folder=$(basename $folder)
   if [ "${folder}" = "Maildir" ]; then folder=INBOX; fi
-  ./cleanup-maildir.py --archive-subfolder=archiv --maildir-root=$BASE --folder-prefix="" --age=90 -d 2 -k -u -v archive ${folder} > logfile.txt
+  TargetFolder=`echo -n $folder | awk -F. 'BEGIN{OFS="."}{if (NF == 5 && $(NF-1) ~ /2[0-9][0-9][0-9]/) print $1"."$2"."$3"."$4; if (NF == 4 && $(NF-1) ~ /2[0-9][0-9][0-9]/)  print $1"."$2"."$3}'`
+  ./cleanup-maildir.py --archive-subfolder=archiv --maildir-root=$BASE -n -v move ${folder} ${TargetFolder} > logfile.txt
+#  echo "./cleanup-maildir.py --archive-subfolder=archiv --maildir-root=$BASE --folder-prefix="" --age=90 -d 2 -k -u -v archive ${folder} > logfile.txt"
 done
