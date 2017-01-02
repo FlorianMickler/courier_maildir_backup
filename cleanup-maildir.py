@@ -333,7 +333,7 @@ class MaildirCleaner(object):
             path = self.folderBase
         else:
             path = os.path.join(self.folderBase, self.folderPrefix + folderName)
-        maildir = mailbox.Maildir(path, MaildirMessage)
+        maildir = mailbox.Maildir(path, MaildirMessage, create=False)
         self.keepMsgIds = dict()
         wantedMsgIds = list()
         references = graph()
@@ -409,7 +409,7 @@ class MaildirCleaner(object):
         else:
             path = os.path.join(self.folderBase, self.folderPrefix + folderName)
 
-        maildir = mailbox.Maildir(path, MaildirMessage)
+        maildir = mailbox.Maildir(path, MaildirMessage, create=False)
 
         fakeMsg = ""
         if self.isTrialRun: 
