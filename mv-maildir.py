@@ -3,19 +3,9 @@
 
 """
 USAGE
-  cleanup-maildir [OPTION].. COMMAND FOLDERNAME..
+  mv-maildir [OPTION].. SRCFOLDERNAME DSTFOLDERNAME
 
 DESCRIPTION
-  Cleans up old messages in FOLDERNAME; the exact action taken
-  depends on COMMAND.  (See next section.)
-      Note that FOLDERNAME is a name such as 'Drafts', and the
-  corresponding maildir path is determined using the values of
-  maildir-root, folder-prefix, and folder-seperator.
-
-COMMANDS
-  archive - move old messages to subfolders based on message date
-  trash   - move old message to trash folder
-  delete  - permanently delete old messages
 
 OPTIONS
   -h, --help
@@ -36,39 +26,15 @@ OPTIONS
       other messages in that thread.
   -r, --keep-read
       If any messages are flagged as READ, do not touch them.
-  -t, --trash-folder=F
-      Use F as trash folder when COMMAND is 'trash'.
-      Default is 'Trash'.
-  --archive-folder=F
-      Use F as the base for constructing archive folders.  For example, if F is
-      'Archive', messages from 2004 might be put in the folder 'Archive.2004'
-  --archive-subfolder=S
-      If set the date-based folder is put in a subfolder S.
-      So, with standard folder separator ".", --archive-folder not set and S 
-      set to 'Archive', messages from 2004 get put into FOLDERNAME.Archive.2004
-      If --archive-folder is set to 'F', messages get put into F.Archive.2004. 
-  -d, --archive-hierarchy-depth=N
-      Specify number of subfolders in archive hierarchy; 1 is just
-      the year, 2 is year/month (default), 3 is year/month/day.
   --maildir-root=F
       Specifies folder that contains mail folders.
       Default is "$HOME/Maildir".
-  --folder-seperator=str
-      Folder hierarchy seperator.  Default is '.'
-  --folder-prefix=str
-      Folder prefix.  Default is '.'
 
 NOTES
-  The following form is accepted for backwards compatibility, but is deprecated:
-  cleanup-maildir --mode=COMMAND [OPTION].. FOLDERNAME..
 
 EXAMPLES
   # Archive messages in 'Sent Items' folder over 30 days old
-  cleanup-maildir --age=30 archive 'Sent Items'" 
-
-  # Delete messages over 2 weeks old in 'Lists/debian-devel' folder,
-  # except messages that are part of a thread containing a flagged message.
-  cleanup-maildir --keep-flagged-threads trash 'Lists.debian-devel'
+  mv-maildir --age=30 'Sent Items' archive
 """
 
 __version__ = "0.2.3"
@@ -134,7 +100,7 @@ class MaildirWriter(object):
         (dstName, tmpFile, newFile, dstFile) = (None, None, None, None)
         while 1:
             try:
-                dstName = "%d.%d_%d.%s" % (int(time.time()), os.getpid(), 
+                dstName = "%d.%d_%d.%s" % (int(time.time()), os.getpid(),
                                            self.counter, socket.gethostname())
                 tmpFile = os.path.join(os.path.join(self.path, "tmp"), dstName)
                 newFile = os.path.join(os.path.join(self.path, "new"), dstName)
@@ -145,7 +111,7 @@ class MaildirWriter(object):
                 os.link(tmpFile, newFile) # Link into new
             except OSError, (n, s):
                 self.logger.critical(
-                        "deliver failed: %s (src=%s tmp=%s new=%s i=%d)" % 
+                        "deliver failed: %s (src=%s tmp=%s new=%s i=%d)" %
                         (s, srcFile, tmpFile, newFile, tryCount))
                 self.logger.info("sleeping")
                 time.sleep(2)
@@ -179,7 +145,7 @@ class MessageDateError(TypeError):
 
 
 class MaildirMessage(rfc822.Message):
-    
+
     """An email message
 
     Has extra Maildir-specific attributes
@@ -254,7 +220,7 @@ class MaildirMessage(rfc822.Message):
         Throws a MessageDateError if the Date header is missing or invalid.
         """
         dh = self.getheader('Date')
-        if dh == None: 
+        if dh == None:
             return None
         try:
             return time.mktime(rfc822.parsedate(dh))
@@ -318,14 +284,6 @@ class MaildirCleaner(object):
         self.logger = logging.getLogger('MaildirCleaner')
         self.logger.setLevel(logging.DEBUG)
 
-    def __getTrashWriter(self):
-        if not self.__trashWriter:
-            path = os.path.join(self.folderBase, self.folderPrefix + self.trashFolder)
-            self.__trashWriter = MaildirWriter(path)
-        return self.__trashWriter
-
-    trashWriter = property(__getTrashWriter)
-
     def scanSubjects(self, folderName):
         """Scans for flagged subjects"""
         self.logger.info("Scanning threads...")
@@ -333,7 +291,7 @@ class MaildirCleaner(object):
             path = self.folderBase
         else:
             path = os.path.join(self.folderBase, self.folderPrefix + folderName)
-        maildir = mailbox.Maildir(path, MaildirMessage)
+        maildir = mailbox.Maildir(path, MaildirMessage, create=False)
         self.keepMsgIds = dict()
         wantedMsgIds = list()
         references = graph()
@@ -373,7 +331,7 @@ class MaildirCleaner(object):
         self.logger.info("Done scanning.")
 
 
-    def clean(self, mode, folderName, minAge):
+    def mv(self, srcFolderPath, dstFolderPath, minAge):
 
         """Trashes or archives messages older than minAge days
 
@@ -387,32 +345,13 @@ class MaildirCleaner(object):
         minAge -- messages younger than minAge days are left alone
         """
 
-        if not mode in ('trash', 'archive', 'delete'):
-            raise ValueError
-
         if (self.keepFlaggedThreads or self.keepUnreadThreads):
             self.scanSubjects(folderName)
 
-        archiveFolder = self.archiveFolder
-        if (archiveFolder == None):
-            if (folderName == 'INBOX'):
-                archiveFolder = ""
-            else:
-                archiveFolder = folderName
-   
-        if (self.archiveSubFolder != None):
-            archiveFolder += self.folderSeperator
-            archiveFolder += self.archiveSubFolder
-
-        if (folderName == 'INBOX'):
-           path = self.folderBase
-        else:
-            path = os.path.join(self.folderBase, self.folderPrefix + folderName)
-
-        maildir = mailbox.Maildir(path, MaildirMessage)
+        maildir = mailbox.Maildir(srcFolderPath, MaildirMessage, create=False)
 
         fakeMsg = ""
-        if self.isTrialRun: 
+        if self.isTrialRun:
             fakeMsg = "(Not really) "
 
         # Move old messages
@@ -422,41 +361,16 @@ class MaildirCleaner(object):
                 self.log(logging.DEBUG, "Keeping #%d (topic flagged)" % i, msg)
             else:
                 if (msg.getAge() >= minAge) and ((not self.keepRead) or (self.keepRead and msg.isNew())):
-                    if mode == 'trash':
-                        self.log(logging.INFO, "%sTrashing #%d (old)" %
-                                 (fakeMsg, i), msg)
-                        if not self.isTrialRun:
-                            self.trashWriter.deliver(msg)
-                            os.unlink(msg.fp._file.name)
-                    elif mode == 'delete':
-                        self.log(logging.INFO, "%sDeleting #%d (old)" % 
-                                 (fakeMsg, i), msg)
-                        if not self.isTrialRun:
-                            os.unlink(msg.fp._file.name)
-                    else: # mode == 'archive'
-                        # Determine subfolder path
-                        mdate = time.gmtime(msg.getDateSentOrRecd())
-                        datePart = str(mdate[0])
-                        if self.archiveHierDepth > 1:
-                            datePart += self.folderSeperator \
-                                        + time.strftime("%m", mdate)
-                        if self.archiveHierDepth > 2:
-                            datePart += self.folderSeperator \
-                                        + time.strftime("%d", mdate)
-                        subFolder = archiveFolder + self.folderSeperator \
-                                    + datePart
-                        sfPath = os.path.join(self.folderBase, 
-                                              self.folderPrefix + subFolder)
-                        self.log(logging.INFO, "%sArchiving #%d to %s" %
-                                 (fakeMsg, i, subFolder), msg)
-                        if not self.isTrialRun:
-                            # Create the subfolder if needed
-                            if not os.path.exists(sfPath):
-                                mkMaildir(sfPath)
-                            # Deliver
-                            self.__mdWriter.deliver(msg, sfPath)
-                            os.unlink(msg.fp._file.name)
-                    self.stats[mode] += 1
+                    self.log(logging.INFO, "%sMoving #%d to %s" %
+                             (fakeMsg, i, dstFolderPath), msg)
+                    if not self.isTrialRun:
+                        # Create the subfolder if needed
+                        if not os.path.exists(dstFolderPath):
+                            mkMaildir(dstFolderPath)
+                        # Deliver
+                        self.__mdWriter.deliver(msg, dstFolderPath)
+                        os.unlink(msg.fp._file.name)
+                    self.stats['archive'] += 1
                 else:
                     self.log(logging.DEBUG, "Keeping #%d (fresh)" % i, msg)
             self.stats['total'] += 1
@@ -481,13 +395,11 @@ cleaner = MaildirCleaner()
 
 # Read command-line arguments
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 
-            "hqvnrm:t:a:kud:",
-            ["help", "quiet", "verbose", "version", "mode=", "trash-folder=",
+    opts, args = getopt.getopt(sys.argv[1:],
+                "hqvnra:ku",
+            ["help", "quiet", "verbose", "version",
              "age=", "keep-flagged-threads", "keep-unread-threads",
-             "keep-read", "folder-seperator=", "folder-prefix=",
-             "maildir-root=", "archive-folder=", "archive-subfolder=",
-             "archive-hierarchy-depth=", "trial-run"])
+             "keep-read", "maildir-root=", "trial-run"])
 except getopt.GetoptError, (msg, opt):
     logger.error("%s\n\n%s" % (msg, __doc__))
     sys.exit(2)
@@ -496,75 +408,58 @@ for o, a in opts:
     if o in ("-h", "--help"):
         print __doc__
         sys.exit()
-    if o in ("-q", "--quiet"): 
+    if o in ("-q", "--quiet"):
         logging.disable(logging.WARNING - 1)
-    if o in ("-v", "--verbose"): 
+    if o in ("-v", "--verbose"):
         logging.disable(logging.DEBUG - 1)
     if o == "--version":
         print __version__
         sys.exit()
     if o in ("-n", "--trial-run"):
         cleaner.isTrialRun = True
-    if o in ("-m", "--mode"): 
-        logger.warning("the --mode flag is deprecated (see --help)")
-        if a in ('trash', 'archive', 'delete'):
-            mode = a
-        else:
-            logger.error("%s is not a valid command" % a)
-            sys.exit(2)
-    if o in ("-t", "--trash-folder"): 
-        cleaner.trashFolder = a
-    if o == "--archive-folder":
-        cleaner.archiveFolder = a
-    if o == "--archive-subfolder":
-        cleaner.archiveSubFolder = a
-    if o in ("-a", "--age"): 
+    if o in ("-a", "--age"):
         minAge = int(a)
-    if o in ("-k", "--keep-flagged-threads"): 
+    if o in ("-k", "--keep-flagged-threads"):
         cleaner.keepFlaggedThreads = True
-    if o in ("-u", "--keep-unread-threads"): 
+    if o in ("-u", "--keep-unread-threads"):
         cleaner.keepUnreadThreads = True
     if o in ("-r", "--keep-read"):
         cleaner.keepRead = True
-    if o == "--folder-seperator":
-        cleaner.folderSeperator = a
-    if o == "--folder-prefix":
-        cleaner.folderPrefix = a
     if o == "--maildir-root":
         cleaner.folderBase = a
-    if o in ("-d", "--archive-hierarchy-depth"): 
-        archiveHierDepth = int(a)
-        if archiveHierDepth < 1 or archiveHierDepth > 3:
-            sys.stderr.write("Error: archive hierarchy depth must be 1, " +
-                             "2, or 3.\n")
-            sys.exit(2)
-        cleaner.archiveHierDepth = archiveHierDepth
 
 if not cleaner.folderBase:
     cleaner.folderBase = os.path.join(os.environ["HOME"], "Maildir")
-if mode == None:
-    if len(args) < 1:
-        logger.error("No command specified")
-        sys.stderr.write(__doc__)
-        sys.exit(2)
-    mode = args.pop(0)
-    if not mode in ('trash', 'archive', 'delete'):
-        logger.error("%s is not a valid command" % mode)
-        sys.exit(2)
 
-if len(args) == 0:
+if len(args) < 2:
     logger.error("No folder(s) specified")
     sys.stderr.write(__doc__)
     sys.exit(2)
 
-logger.debug("Mode is " + mode)
+src = args.pop(0)
+logger.debug("src: %s",src)
+dst = args.pop(0)
+logger.debug("dst: %s",dst)
 
-# Clean each folder
-for dir in args:
-    logger.debug("Cleaning up %s..." % dir)
-    cleaner.clean(mode, dir, minAge)
+srcPath = os.path.join(cleaner.folderBase, src)
+if (src == 'INBOX'):
+    srcPath = cleaner.folderBase
+
+
+dstPath = os.path.join(cleaner.folderBase, dst)
+if (dst == 'INBOX'):
+    dstPath = cleaner.folderBase
+
+if (srcPath == dstPath):
+    logger.error("SourceFolder %s Path (%s) equals DestinationFolder %s" \
+        "Path (%s) ", (src,srcPath,dst,dstPath))
+    sys.exit(2)
+
+
+logger.debug("moving from %s:%s to %s:%s" % (src, srcPath, dst, dstPath))
+cleaner.mv(srcPath, dstPath, minAge)
 
 logger.info('Total messages:     %5d' % cleaner.stats['total'])
-logger.info('Affected messages:  %5d' % cleaner.stats[mode])
+logger.info('Affected messages:  %5d' % cleaner.stats['archive'])
 logger.info('Untouched messages: %5d' %
-            (cleaner.stats['total'] - cleaner.stats[mode]))
+            (cleaner.stats['total'] - cleaner.stats['archive']))
