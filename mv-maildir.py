@@ -397,7 +397,7 @@ mode = None
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 logging.disable(logging.INFO - 1)
-logger = logging.getLogger('cleanup-maildir')
+logger = logging.getLogger('mv-maildir')
 cleaner = MaildirCleaner()
 
 # Read command-line arguments
