@@ -459,7 +459,7 @@ if (dst == 'INBOX'):
 
 if (srcPath == dstPath):
     logger.error("SourceFolder %s Path (%s) equals DestinationFolder %s" \
-        "Path (%s) ", (src,srcPath,dst,dstPath))
+        "Path (%s) " % (src, srcPath, dst, dstPath))
     sys.exit(2)
 
 
