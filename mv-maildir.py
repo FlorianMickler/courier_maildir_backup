@@ -355,25 +355,32 @@ class MaildirCleaner(object):
             fakeMsg = "(Not really) "
 
         # Move old messages
-        for i, msg in enumerate(maildir):
-            if self.keepFlaggedThreads == True \
-                    and msg.getMessageId() in self.keepMsgIds:
-                self.log(logging.DEBUG, "Keeping #%d (topic flagged)" % i, msg)
-            else:
-                if (msg.getAge() >= minAge) and ((not self.keepRead) or (self.keepRead and msg.isNew())):
-                    self.log(logging.INFO, "%sMoving #%d to %s" %
-                             (fakeMsg, i, dstFolderPath), msg)
-                    if not self.isTrialRun:
-                        # Create the subfolder if needed
-                        if not os.path.exists(dstFolderPath):
-                            mkMaildir(dstFolderPath)
-                        # Deliver
-                        self.__mdWriter.deliver(msg, dstFolderPath)
-                        os.unlink(msg.fp._file.name)
-                    self.stats['archive'] += 1
+        try:
+            for i, msg in enumerate(maildir):
+                if self.keepFlaggedThreads == True \
+                  and msg.getMessageId() in self.keepMsgIds:
+                    self.log(logging.DEBUG, "Keeping #%d (topic flagged)" % i, msg)
                 else:
-                    self.log(logging.DEBUG, "Keeping #%d (fresh)" % i, msg)
-            self.stats['total'] += 1
+                    if (msg.getAge() >= minAge) and ((not self.keepRead) or (self.keepRead and msg.isNew())):
+                        self.log(logging.INFO, "%sMoving #%d to %s" %
+                             (fakeMsg, i, dstFolderPath), msg)
+                        if not self.isTrialRun:
+                            # Create the subfolder if needed
+                            if not os.path.exists(dstFolderPath):
+                                mkMaildir(dstFolderPath)
+                            # Deliver
+                            self.__mdWriter.deliver(msg, dstFolderPath)
+                            os.unlink(msg.fp._file.name)
+                        self.stats['archive'] += 1
+                    else:
+                        self.log(logging.DEBUG, "Keeping #%d (fresh)" % i, msg)
+                self.stats['total'] += 1
+        except OSError, (n, s):
+            if n == 2:
+                self.logger.critical("srcFolder does not exist or is not a valid maildir: %s (OSError errno %d (%s))" % (srcFolderPath, n, s))
+            else:
+                self.logger.critical("cannot move: %s (errno %d)" % (s, n))
+            sys.exit(2)
 
     def log(self, lvl, text, msgObj):
         """Log some text with the subject of a message"""
