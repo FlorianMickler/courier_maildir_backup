@@ -57,13 +57,28 @@ import sys
 import time
 
 
-def mkMaildir(path):
+def mkMaildir(path, ignoreExistError=False):
     """Make a Maildir structure rooted at 'path'"""
-    os.mkdir(path, 0700)
-    os.mkdir(os.path.join(path, 'tmp'), 0700)
-    os.mkdir(os.path.join(path, 'new'), 0700)
-    os.mkdir(os.path.join(path, 'cur'), 0700)
-
+    try:
+        os.mkdir(path, 0700)
+    except OSError, (n,s):
+        if not ignoreExistError or n != 17:
+            raise OSError, (n,s)
+    try:
+        os.mkdir(os.path.join(path, 'tmp'), 0700)
+    except OSError, (n,s):
+        if not ignoreExistError or n != 17:
+            raise OSError, (n,s)
+    try:
+        os.mkdir(os.path.join(path, 'new'), 0700)
+    except OSError, (n,s):
+        if not ignoreExistError or n != 17:
+            raise OSError, (n,s)
+    try:
+        os.mkdir(os.path.join(path, 'cur'), 0700)
+    except OSError, (n,s):
+        if not ignoreExistError or n != 17:
+            raise OSError, (n,s)
 
 class MaildirWriter(object):
 
@@ -348,7 +363,9 @@ class MaildirCleaner(object):
         if (self.keepFlaggedThreads or self.keepUnreadThreads):
             self.scanSubjects(folderName)
 
-        maildir = mailbox.Maildir(srcFolderPath, MaildirMessage, create=False)
+        mkMaildir(srcFolderPath, ignoreExistError=True)
+        maildir = mailbox.Maildir(srcFolderPath, MaildirMessage)
+
 
         fakeMsg = ""
         if self.isTrialRun:
