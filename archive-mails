@@ -2,7 +2,7 @@
 
 BASE=$HOME/Maildir
 ARCHIVEBASE=$HOME/Maildir
-
+IFS=$(echo -en "\n")
 for folder in `find $BASE -regextype posix-extended  -maxdepth 1 -type d \! -iregex ".*\.archiv(\..*)?" \! -name cur \! -name tmp \! -name new \! -name search \! -regex '.*\.SPAM.*' \! -name "courier*" \! -name .Mail_Search`
 
 do
