@@ -2,11 +2,14 @@
 
 BASE=$HOME/Maildir
 ARCHIVEBASE=$HOME/Maildir
+
+SCRIPTDIR=$(dirname $0)
+
 IFS=$(echo -en "\n")
 for folder in `find $BASE -regextype posix-extended  -maxdepth 1 -type d \! -iregex ".*\.archiv(\..*)?" \! -name cur \! -name tmp \! -name new \! -name search \! -regex '.*\.SPAM.*' \! -name "courier*" \! -name .Mail_Search`
 
 do
   srcfolder=$(basename $folder)
   if [ "${srcfolder}" = "Maildir" ]; then srcfolder=INBOX; fi
-  ./cleanup-maildir.py --archive-subfolder=archiv --maildir-root=$BASE --folder-prefix="" --age=90 -d 1 -k -u -v archive ${srcfolder} >> logfile.txt
+  ${SCRIPTDIR}/cleanup-maildir.py --archive-subfolder=archiv --maildir-root=$BASE --folder-prefix="" --age=90 -d 1 -k -u -v archive ${srcfolder} >> logfile.txt
 done
